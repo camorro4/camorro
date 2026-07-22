@@ -28,8 +28,7 @@
 pkg update && pkg upgrade
 
 # 2. Clone المشروع
-git clone https://github.com/yourusername/camorro.git
-cd camorro
+git clone [https://github.com/camorro3/camorro.git]
 
 # 3. تشغيل سكريبت التثبيت
 chmod +x install.sh
