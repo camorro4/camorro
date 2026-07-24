@@ -18,7 +18,12 @@ except ImportError:
 class SimpleConsole:
     def print(self, *args, **kwargs):
         text = " ".join(str(a) for a in args)
-        for tag in ("[cyan]", "[/cyan]", "[green]", "[/green]", "[red]", "[/red]", "[yellow]", "[/yellow]", "[magenta]", "[/magenta]", "[bold]", "[/bold]", "[white]", "[/white]"):
+        for tag in (
+            "[cyan]", "[/cyan]", "[green]", "[/green]",
+            "[red]", "[/red]", "[yellow]", "[/yellow]",
+            "[magenta]", "[/magenta]", "[bold]", "[/bold]",
+            "[white]", "[/white]",
+        ):
             text = text.replace(tag, "")
         print(text)
 
@@ -62,16 +67,19 @@ def show_info_panel(username, data):
     if not data:
         print(f"{R}[!] Could not retrieve information for @{username}{RE}")
         return
+
     bio = str(data.get("biography", "N/A") or "N/A")[:100]
     followers = data.get("followers", 0) or 0
     following = data.get("following", 0) or 0
     posts = data.get("posts", 0) or 0
+
     try:
         followers_s = f"{int(followers):,}"
         following_s = f"{int(following):,}"
     except Exception:
         followers_s = str(followers)
         following_s = str(following)
+
     print(f"""
 {G}========== Target Profile: @{username} =========={RE}
 {G}Username:{W}      @{username}
