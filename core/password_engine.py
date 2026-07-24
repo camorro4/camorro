@@ -70,91 +70,45 @@ class PasswordEngine:
                 self.base_words.add(w.lower())
                 self.base_words.add(w.capitalize())
 
-        phone = str(pi.get("phone_number", "") or "").strip()
-        if phone:
-            digits = re.sub(r"\D", "", phone)
-            if digits:
-                self.numbers.add(digits)
-                if len(digits) >= 4:
-                    self.numbers.add(digits[-4:])
-                if len(digits) >= 6:
-                    self.numbers.add(digits[-6:])
-                if len(digits) >= 8:
-                    self.numbers.add(digits[-8:])
-
-        bd = str(pi.get("birth_date", "") or "").strip()
-        if bd:
-            self._add_date_parts(bd)
-
-        day = str(pi.get("birth_day", "") or "").strip()
-        month = str(pi.get("birth_month", "") or "").strip()
-        year = str(pi.get("birth_year", "") or "").strip()
-        if day:
-            self.numbers.add(day.zfill(2))
-            self.numbers.add(str(int(day)) if day.isdigit() else day)
-        if month:
-            self.numbers.add(month.zfill(2))
-            self.numbers.add(str(int(month)) if month.isdigit() else month)
-        if year:
-            self.years.add(year)
-            if len(year) == 4:
-                self.years.add(year[2:])
-                self.numbers.add(year)
-                self.numbers.add(year[2:])
+        bday = str(pi.get("birthdate", "") or pi.get("birthday", "") or "").strip()
+        if bday:
+            self._add_date_parts(bday)
 
         current_year = datetime.now().year
         for y in range(current_year - 40, current_year + 2):
             self.years.add(str(y))
-            self.years.add(str(y)[2:])
+            self.years.add(str(y)[-2:])
 
-        for n in list(range(0, 100)) + [100, 111, 123, 321, 555, 666, 777, 888, 999, 1234, 1111, 0000]:
+        for n in list(range(0, 100)) + [123, 1234, 12345, 123456, 111, 000, 69, 77, 88, 99, 7, 13, 21]:
             self.numbers.add(str(n))
-            self.numbers.add(str(n).zfill(2))
-            self.numbers.add(str(n).zfill(3))
-            self.numbers.add(str(n).zfill(4))
+            self.numbers.add(f"{n:02d}")
 
-        # Common weak seeds if little personal data
-        if len(self.base_words) < 3 and username:
-            self.base_words.update(
-                {
-                    username,
-                    username + "1",
-                    "password",
-                    "instagram",
-                    "love",
-                    "admin",
-                }
-            )
-
-        self.base_words = {w for w in self.base_words if w and len(w) >= 2}
-        self.years = {y for y in self.years if y}
-        self.numbers = {n for n in self.numbers if n is not None and str(n) != ""}
+        if not self.base_words:
+            self.base_words.add("password")
+            self.base_words.add("instagram")
 
     def _add_name_variants(self, name):
-        name = str(name).strip()
+        name = re.sub(r"\s+", " ", str(name)).strip()
         if not name:
             return
         self.base_words.add(name)
         self.base_words.add(name.lower())
-        self.base_words.add(name.upper())
-        self.base_words.add(name.capitalize())
-        self.base_words.add(name.title().replace(" ", ""))
-        parts = re.split(r"[\s._\-]+", name)
-        clean_parts = []
+        self.base_words.add(name.replace(" ", ""))
+        self.base_words.add(name.replace(" ", "").lower())
+        self.base_words.add(name.replace(" ", "_"))
+        self.base_words.add(name.replace(" ", "."))
+        parts = name.split()
         for p in parts:
-            p = p.strip()
             if len(p) >= 2:
-                clean_parts.append(p)
                 self.base_words.add(p)
                 self.base_words.add(p.lower())
                 self.base_words.add(p.capitalize())
                 self.base_words.add(p.upper())
-        if len(clean_parts) >= 2:
-            a, b = clean_parts[0], clean_parts[1]
+        if len(parts) >= 2:
+            a, b = parts[0], parts[1]
             self.base_words.add(a + b)
             self.base_words.add(a.lower() + b.lower())
             self.base_words.add(a.capitalize() + b.capitalize())
-            self.base_words.add(a + "_" + b)
             self.base_words.add(a[0].lower() + b.lower())
             self.base_words.add(a.lower() + b[0].lower())
 
@@ -162,26 +116,29 @@ class PasswordEngine:
         date_str = str(date_str).strip()
         if not date_str:
             return
-        parts = re.findall(r"\d+", date_str)
-        if not parts:
-            return
-        for p in parts:
-            self.numbers.add(p)
-            if len(p) == 1:
-                self.numbers.add(p.zfill(2))
-            if len(p) == 4:
-                self.years.add(p)
-                self.years.add(p[2:])
-                self.numbers.add(p[2:])
-        if len(parts) >= 3:
-            d, m, y = parts[0], parts[1], parts[2]
+        nums = re.findall(r"\d+", date_str)
+        for n in nums:
+            self.numbers.add(n)
+            if len(n) == 4 and n.startswith(("19", "20")):
+                self.years.add(n)
+                self.years.add(n[-2:])
+            if len(n) <= 2:
+                self.numbers.add(n.zfill(2))
+        if len(nums) >= 3:
+            d, m, y = nums[0], nums[1], nums[2]
+            if len(y) == 2:
+                y = "20" + y if int(y) < 50 else "19" + y
             combos = [
                 d + m + y,
-                d + m + y[-2:] if len(y) == 4 else d + m + y,
+                d + m + y[-2:],
+                m + d + y,
+                m + d + y[-2:],
+                y + m + d,
+                y[-2:] + m + d,
                 d + m,
                 m + d,
-                y + m + d if len(y) >= 2 else "",
-                d + m + y[-2:] if len(y) >= 2 else "",
+                d + y[-2:] if len(y) >= 2 else "",
+                m + y[-2:] if len(y) >= 2 else "",
             ]
             for c in combos:
                 if c:
@@ -328,7 +285,6 @@ class PasswordEngine:
 
         self._combine_words()
 
-        # Extra common patterns
         commons = [
             "123456",
             "password",
@@ -358,7 +314,6 @@ class PasswordEngine:
                 self.passwords.add(username + c)
                 self.passwords.add(c + username)
 
-        # Pad / fill up to target with more numeric mutations
         words = list(self.base_words) or ["user", "pass"]
         i = 0
         while len(self.passwords) < target and i < target * 3:
@@ -387,3 +342,6 @@ class PasswordEngine:
             result = result[:target]
         self.passwords = set(result)
         return result
+
+
+PasswordGenerator = PasswordEngine
