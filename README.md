@@ -42,9 +42,16 @@ This tool is designed **exclusively for authorized security testing**. Users mus
 ## 📦 Installation
 
 ### Termux
+`# Camoro v2.1
+
+Instagram Security Testing Framework for Termux & Linux.
+
+## Install
+
 ```bash
-pkg update && pkg upgrade
-pkg install python git
-(https://github.com/camorro5/camorro.git)
+pkg update -y
+pkg install python git -y
+git clone https://github.com/camorro5/camorro.git
 cd camorro
 bash setup.sh
+python camoro.py
