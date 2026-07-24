@@ -10,6 +10,7 @@ from .config import (
     TARGET_PASSWORD_COUNT,
 )
 
+
 class PasswordEngine:
     def __init__(self, target_data=None, personal_info=None):
         self.target_data = target_data or {}
@@ -26,8 +27,7 @@ class PasswordEngine:
             self.base_words.add(username)
             self.base_words.add(username.lower())
             self.base_words.add(username.capitalize())
-            parts = re.split(r"[._\-]+", username)
-            for p in parts:
+            for p in re.split(r"[._\-]+", username):
                 p = p.strip()
                 if len(p) >= 2:
                     self.base_words.add(p)
@@ -51,7 +51,7 @@ class PasswordEngine:
         for d in self.target_data.get("extracted_dates", []) or []:
             self._add_date_parts(str(d))
 
-        pi = self.personal_info
+        pi = self.personal_info or {}
         for key in (
             "real_name",
             "girlfriend_name",
@@ -70,16 +70,43 @@ class PasswordEngine:
                 self.base_words.add(w.lower())
                 self.base_words.add(w.capitalize())
 
-        bday = str(pi.get("birthdate", "") or pi.get("birthday", "") or "").strip()
+        bday = str(
+            pi.get("birth_date", "")
+            or pi.get("birthdate", "")
+            or pi.get("birthday", "")
+            or ""
+        ).strip()
         if bday:
             self._add_date_parts(bday)
+
+        for part in (
+            pi.get("birth_day", ""),
+            pi.get("birth_month", ""),
+            pi.get("birth_year", ""),
+        ):
+            if part:
+                self._add_date_parts(str(part))
 
         current_year = datetime.now().year
         for y in range(current_year - 40, current_year + 2):
             self.years.add(str(y))
             self.years.add(str(y)[-2:])
 
-        for n in list(range(0, 100)) + [123, 1234, 12345, 123456, 111, 000, 69, 77, 88, 99, 7, 13, 21]:
+        for n in list(range(0, 100)) + [
+            123,
+            1234,
+            12345,
+            123456,
+            111,
+            69,
+            77,
+            88,
+            99,
+            7,
+            13,
+            21,
+            0,
+        ]:
             self.numbers.add(str(n))
             self.numbers.add(f"{n:02d}")
 
@@ -127,8 +154,8 @@ class PasswordEngine:
         if len(nums) >= 3:
             d, m, y = nums[0], nums[1], nums[2]
             if len(y) == 2:
-                y = "20" + y if int(y) < 50 else "19" + y
-            combos = [
+                y = ("20" + y) if int(y) < 50 else ("19" + y)
+            for c in (
                 d + m + y,
                 d + m + y[-2:],
                 m + d + y,
@@ -137,10 +164,7 @@ class PasswordEngine:
                 y[-2:] + m + d,
                 d + m,
                 m + d,
-                d + y[-2:] if len(y) >= 2 else "",
-                m + y[-2:] if len(y) >= 2 else "",
-            ]
-            for c in combos:
+            ):
                 if c:
                     self.numbers.add(c)
 
@@ -151,7 +175,7 @@ class PasswordEngine:
         word = str(word)
         if not word:
             return
-        specials = SPECIAL_CHARS if SPECIAL_CHARS else ["!", "@", "#", ".", "_", "*"]
+        specials = SPECIAL_CHARS or ["!", "@", "#", ".", "_", "*"]
         years = list(self.years)[:30]
         nums = list(self.numbers)[:80]
 
@@ -245,7 +269,7 @@ class PasswordEngine:
         words = list(self.base_words)
         if len(words) < 2:
             return
-        specials = SPECIAL_CHARS if SPECIAL_CHARS else ["", "_", ".", "@"]
+        specials = SPECIAL_CHARS or ["_", ".", "@"]
         nums = list(self.numbers)[:30]
         years = list(self.years)[:15]
 
@@ -270,14 +294,12 @@ class PasswordEngine:
                     if 4 <= len(p) <= 40:
                         self.passwords.add(p)
                 for s in specials:
-                    if not s:
-                        continue
                     p = f"{c}{s}"
                     if 4 <= len(p) <= 40:
                         self.passwords.add(p)
 
     def generate_passwords(self, target_count=None):
-        target = target_count or TARGET_PASSWORD_COUNT
+        target = int(target_count or TARGET_PASSWORD_COUNT)
         self.passwords = set()
 
         for word in list(self.base_words):
@@ -319,7 +341,7 @@ class PasswordEngine:
         while len(self.passwords) < target and i < target * 3:
             w = words[i % len(words)]
             n = i % 10000
-            variants = [
+            for v in (
                 f"{w}{n}",
                 f"{w.lower()}{n}",
                 f"{w.capitalize()}{n}",
@@ -329,8 +351,7 @@ class PasswordEngine:
                 f"{w}{n}!",
                 f"{self._leet(w)}{n}",
                 f"{w}{datetime.now().year - (i % 30)}",
-            ]
-            for v in variants:
+            ):
                 if 4 <= len(v) <= 40:
                     self.passwords.add(v)
                 if len(self.passwords) >= target:
