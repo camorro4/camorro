@@ -1,57 +1,29 @@
-# 🚀 Camoro - AI-Powered Instagram Security Testing Framework
+# InstaCrackAI 🔥
 
-> **Version:** 2.0.0  
-> **Platform:** Termux | Linux  
-> **Language:** Python 3.9+
+**Advanced Instagram Security Assessment Tool**
+— OSINT Reconnaissance + AI Password Generation + Login Attack
 
----
+![Python](https://img.shields.io/badge/python-3.9%2B-blue)
+![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Termux-green)
+![License](https://img.shields.io/badge/license-MIT-red)
 
-## ⚠️ Legal Disclaimer
+## 📌 Features
 
-This tool is designed **exclusively for authorized security testing**. Users must have explicit permission from the account owner before use. Unauthorized access to accounts is illegal and unethical.
+- **🔍 OSINT Recon**: Profile info, followers, bio analysis, engagement rate, hashtags, mentions
+- **🧠 AI Password Generator**: Builds personalized wordlists from target's personal data
+- **⚡ Login Attack**: Full Instagram login flow with libsodium password encryption
+- **🌐 Proxy Support**: Rotate proxies to avoid rate limiting
+- **📊 Reports**: JSON/CSV export, colored terminal output
 
----
+## ⚙️ Installation
 
-## 🔥 Features
-
-- **AI-Powered Password Generation** - Generates 18,000+ intelligent password combinations based on:
-  - Profile intelligence (bio, username, full name)
-  - Personal information (birth date, girlfriend, pet, nickname)
-  - Pattern mutations (leet speak, dates, common patterns)
-  - Contextual AI analysis
-
-- **Smart Proxy Rotation** - Automatic proxy switching to avoid detection:
-  - Rotates after configurable attempt thresholds
-  - Cooldown management for blocked proxies
-  - Multi-format proxy support (HTTP, SOCKS5, with auth)
-
-- **Anti-Detection System**:
-  - User-Agent rotation pool
-  - Header fingerprint randomization
-  - CSRF token management
-  - Device ID rotation
-  - Randomized delays between attempts
-
-- **Multi-Threaded Attacks** - Configurable concurrent workers
-- **Profile Intelligence Gathering** - Extracts actionable intel from Instagram profiles
-- **Interactive CLI** - Beautiful terminal interface with Rich library
-- **Result Logging** - All successful credentials saved securely
-
----
-
-## 📦 Installation
-
-### Termux
-`# Camoro v2.1
-
-Instagram Security Testing Framework for Termux & Linux.
-
-## Install
-
+### Linux (Kali / Ubuntu / Debian)
 ```bash
-pkg update -y
-pkg install python git -y
-git clone https://github.com/camorro5/camorro.git
-cd camorro
-bash setup.sh
-python camoro.py
+git clone https://github.com/YOUR_USERNAME/InstaCrackAI.git
+cd InstaCrackAI
+pip install -r requirements.txt
+
+# For password encryption:
+pip install pysodium
+# OR
+pip install pynacl
